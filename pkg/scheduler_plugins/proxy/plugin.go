@@ -48,6 +48,7 @@ type Plugin struct {
 }
 
 var _ framework.FilterPlugin = &Plugin{}
+var _ framework.QueueSortPlugin = &Plugin{}
 var _ framework.ReservePlugin = &Plugin{}
 var _ framework.UnreservePlugin = &Plugin{}
 var _ framework.PreBindPlugin = &Plugin{}
@@ -273,6 +274,43 @@ func (pl *Plugin) PostBind(ctx context.Context, state *framework.CycleState, p *
 	delete(pl.failedNodeNamesByPodUID, p.UID)
 	// TODO if a proxy pod is deleted while pending, with failed node names, PostBind won't be called,
 	// so we're leaking memory, but there's no multi-cycle "FinalUnreserve" plugin, we'd have to listen to deletions...
+}
+
+func getGroupInfo(info *framework.PodInfo) (string, string, string) {
+	groupName, ok := info.Pod.Annotations[common.AnnotationKeyGroupName]
+	if !ok {
+		return "", "", ""
+	}
+	groupCreatedAt, ok := info.Pod.Annotations[common.AnnotationKeyGroupCreatedAt]
+	if !ok {
+		return groupName, "", ""
+	}
+	groupPriority, ok := info.Pod.Annotations[common.AnnotationKeyGroupPriority]
+	if !ok {
+		return groupName, groupCreatedAt, ""
+	}
+	return groupName, groupCreatedAt, groupPriority
+}
+
+func (pl *Plugin) Less(info1 *framework.PodInfo, info2 *framework.PodInfo) bool {
+	_, group1CreatedAt, group1Priority := getGroupInfo(info1)
+	_, group2CreatedAt, group2Priority := getGroupInfo(info2)
+
+	if group1Priority < group2Priority {
+		return true
+	} else if group1Priority > group2Priority {
+		return false
+	}
+	if group1CreatedAt < group2CreatedAt {
+		return true
+	} else if group1CreatedAt > group2CreatedAt {
+		return true
+	}
+
+	if info1.Pod.CreationTimestamp.After(info2.Pod.CreationTimestamp.Time) {
+		return true
+	}
+	return false
 }
 
 // New initializes a new plugin and returns it.

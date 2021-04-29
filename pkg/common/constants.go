@@ -74,4 +74,8 @@ var (
 	AnnotationKeyCiliumGlobalService = "io.cilium/global-service"
 
 	AnnotationKeyOriginalSelector = KeyPrefix + "original-selector"
+
+	AnnotationKeyGroupName     = KeyPrefix + "group-name"
+	AnnotationKeyGroupCreatedAt  = KeyPrefix + "group-created-at"
+	AnnotationKeyGroupPriority = KeyPrefix + "group-priority"
 )
