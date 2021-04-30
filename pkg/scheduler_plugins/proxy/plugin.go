@@ -276,25 +276,9 @@ func (pl *Plugin) PostBind(ctx context.Context, state *framework.CycleState, p *
 	// so we're leaking memory, but there's no multi-cycle "FinalUnreserve" plugin, we'd have to listen to deletions...
 }
 
-func getGroupInfo(info *framework.PodInfo) (string, string, string) {
-	groupName, ok := info.Pod.Annotations[common.AnnotationKeyGroupName]
-	if !ok {
-		return "", "", ""
-	}
-	groupCreatedAt, ok := info.Pod.Annotations[common.AnnotationKeyGroupCreatedAt]
-	if !ok {
-		return groupName, "", ""
-	}
-	groupPriority, ok := info.Pod.Annotations[common.AnnotationKeyGroupPriority]
-	if !ok {
-		return groupName, groupCreatedAt, ""
-	}
-	return groupName, groupCreatedAt, groupPriority
-}
-
 func (pl *Plugin) Less(info1 *framework.PodInfo, info2 *framework.PodInfo) bool {
-	_, group1CreatedAt, group1Priority := getGroupInfo(info1)
-	_, group2CreatedAt, group2Priority := getGroupInfo(info2)
+	_, group1CreatedAt, group1Priority := common.GetGroupInfoFromPodInfo(info1)
+	_, group2CreatedAt, group2Priority := common.GetGroupInfoFromPodInfo(info2)
 
 	if group1Priority < group2Priority {
 		return true

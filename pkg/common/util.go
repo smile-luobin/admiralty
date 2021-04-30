@@ -18,6 +18,8 @@ package common
 
 import (
 	"strings"
+
+	framework "k8s.io/kubernetes/pkg/scheduler/framework/v1alpha1"
 )
 
 func SplitLabelsOrAnnotations(m map[string]string) (map[string]string, map[string]string) {
@@ -31,4 +33,20 @@ func SplitLabelsOrAnnotations(m map[string]string) (map[string]string, map[strin
 		}
 	}
 	return mc, other
+}
+
+func GetGroupInfoFromPodInfo(info *framework.PodInfo) (string, string, string) {
+	groupName, ok := info.Pod.Annotations[AnnotationKeyGroupName]
+	if !ok {
+		return "", "", ""
+	}
+	groupCreatedAt, ok := info.Pod.Annotations[AnnotationKeyGroupCreatedAt]
+	if !ok {
+		return groupName, "", ""
+	}
+	groupPriority, ok := info.Pod.Annotations[AnnotationKeyGroupPriority]
+	if !ok {
+		return groupName, groupCreatedAt, ""
+	}
+	return groupName, groupCreatedAt, groupPriority
 }

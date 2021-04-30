@@ -39,6 +39,7 @@ type Plugin struct {
 	client versioned.Interface
 }
 
+var _ framework.QueueSortPlugin = &Plugin{}
 var _ framework.PreFilterPlugin = &Plugin{}
 var _ framework.ReservePlugin = &Plugin{}
 var _ framework.PreBindPlugin = &Plugin{}
@@ -107,6 +108,27 @@ func (pl *Plugin) isAllowed(ctx context.Context, p *v1.Pod) (bool, error) {
 
 	klog.V(1).Infof("candidate %s is allowed", pod.Name)
 	return true, nil
+}
+
+func (pl *Plugin) Less(info1 *framework.PodInfo, info2 *framework.PodInfo) bool {
+	_, group1CreatedAt, group1Priority := common.GetGroupInfoFromPodInfo(info1)
+	_, group2CreatedAt, group2Priority := common.GetGroupInfoFromPodInfo(info2)
+
+	if group1Priority < group2Priority {
+		return true
+	} else if group1Priority > group2Priority {
+		return false
+	}
+	if group1CreatedAt < group2CreatedAt {
+		return true
+	} else if group1CreatedAt > group2CreatedAt {
+		return true
+	}
+
+	if info1.Pod.CreationTimestamp.After(info2.Pod.CreationTimestamp.Time) {
+		return true
+	}
+	return false
 }
 
 // New initializes a new plugin and returns it.
