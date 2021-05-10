@@ -75,7 +75,7 @@ var (
 
 	AnnotationKeyOriginalSelector = KeyPrefix + "original-selector"
 
-	AnnotationKeyGroupName     = KeyPrefix + "group-name"
-	AnnotationKeyGroupCreatedAt  = KeyPrefix + "group-created-at"
-	AnnotationKeyGroupPriority = KeyPrefix + "group-priority"
+	AnnotationKeyGroupName      = KeyPrefix + "group-name"
+	AnnotationKeyGroupCreatedAt = KeyPrefix + "group-created-at"
+	AnnotationKeyGroupPriority  = KeyPrefix + "group-priority"
 )

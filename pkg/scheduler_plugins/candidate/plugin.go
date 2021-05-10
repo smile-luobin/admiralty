@@ -119,8 +119,9 @@ func (pl *Plugin) Less(info1 *framework.PodInfo, info2 *framework.PodInfo) bool 
 	} else if group1Priority > group2Priority {
 		return false
 	}
+
 	if group1CreatedAt < group2CreatedAt {
-		return true
+		return false
 	} else if group1CreatedAt > group2CreatedAt {
 		return true
 	}
