@@ -47,8 +47,8 @@ type Plugin struct {
 	mx                      sync.RWMutex
 }
 
-var _ framework.FilterPlugin = &Plugin{}
 var _ framework.QueueSortPlugin = &Plugin{}
+var _ framework.FilterPlugin = &Plugin{}
 var _ framework.ReservePlugin = &Plugin{}
 var _ framework.UnreservePlugin = &Plugin{}
 var _ framework.PreBindPlugin = &Plugin{}
@@ -280,18 +280,21 @@ func (pl *Plugin) Less(info1 *framework.PodInfo, info2 *framework.PodInfo) bool 
 	_, group1CreatedAt, group1Priority := common.GetGroupInfoFromPodInfo(info1)
 	_, group2CreatedAt, group2Priority := common.GetGroupInfoFromPodInfo(info2)
 
+	// order by group-priority asc
 	if group1Priority < group2Priority {
 		return true
 	} else if group1Priority > group2Priority {
 		return false
 	}
-	
+
+	// order by group-created-at desc
 	if group1CreatedAt < group2CreatedAt {
 		return false
 	} else if group1CreatedAt > group2CreatedAt {
 		return true
 	}
 
+	// order by creation asc
 	if info1.Pod.CreationTimestamp.After(info2.Pod.CreationTimestamp.Time) {
 		return true
 	}
