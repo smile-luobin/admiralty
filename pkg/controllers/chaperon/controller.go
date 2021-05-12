@@ -165,9 +165,9 @@ func (c *reconciler) Handle(obj interface{}) (requeueAfter *time.Duration, err e
 	needStatusUpdate := len(diff) > 0
 
 	mcPodChaperonAnnotations, otherPodChaperonAnnotations := common.SplitLabelsOrAnnotations(podChaperon.Annotations)
-	mcPodAnnotations, otherPodAnnotations := common.SplitLabelsOrAnnotations(pod.Annotations)
+	_, otherPodAnnotations := common.SplitLabelsOrAnnotations(pod.Annotations)
 	needUpdate := !reflect.DeepEqual(otherPodChaperonAnnotations, otherPodAnnotations)
-	needMcPodAnnotationsUpdate := !reflect.DeepEqual(mcPodChaperonAnnotations, mcPodAnnotations)
+	// needMcPodAnnotationsUpdate := !reflect.DeepEqual(mcPodChaperonAnnotations, mcPodAnnotations)
 
 	// NEVER modify objects from the store. It's a read-only, local cache.
 	// You can use DeepCopy() to make a deep copy of original object and modify this copy
@@ -198,23 +198,6 @@ func (c *reconciler) Handle(obj interface{}) (requeueAfter *time.Duration, err e
 
 		var err error
 		podChaperon, err = c.customclientset.MulticlusterV1alpha1().PodChaperons(podChaperon.Namespace).Update(ctx, podChaperonCopy, metav1.UpdateOptions{})
-		if err != nil {
-			if controller.IsOptimisticLockError(err) {
-				requeueAfter := time.Second
-				return &requeueAfter, nil
-			}
-			return nil, err
-		}
-		didSomething = true
-	}
-
-	if needMcPodAnnotationsUpdate {
-		for k, v := range mcPodChaperonAnnotations {
-			pod.Annotations[k] = v
-		}
-
-		var err error
-		pod, err = c.kubeclientset.CoreV1().Pods(podChaperon.Namespace).Update(ctx, pod, metav1.UpdateOptions{})
 		if err != nil {
 			if controller.IsOptimisticLockError(err) {
 				requeueAfter := time.Second
