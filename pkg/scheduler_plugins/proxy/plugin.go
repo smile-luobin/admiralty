@@ -23,6 +23,7 @@ import (
 	"time"
 
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -60,6 +61,22 @@ const Name = "proxy"
 // Name returns name of the plugin. It is used in logs, etc.
 func (pl *Plugin) Name() string {
 	return Name
+}
+
+func (pl *Plugin) cleanupCandidate(ctx context.Context, c *v1alpha1.PodChaperon, clusterName string) error {
+	target, ok := pl.targets[clusterName]
+	if !ok {
+		return fmt.Errorf("no target for cluster name %s", clusterName)
+	}
+	_, err := target.MulticlusterV1alpha1().PodChaperons(c.Namespace).Get(ctx, c.Name, metav1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+	klog.V(1).Info("cleanup candidate %s in target cluster %s", c.Name, clusterName)
+	return target.MulticlusterV1alpha1().PodChaperons(c.Namespace).Delete(ctx, c.Name, metav1.DeleteOptions{})
 }
 
 func virtualNodeNameToClusterName(nodeName string) string {
@@ -116,6 +133,7 @@ func (pl *Plugin) Filter(ctx context.Context, state *framework.CycleState, pod *
 	defer cancel()
 
 	var isReserved, isUnschedulable bool
+	var candidate *v1alpha1.PodChaperon
 
 	if err := wait.PollImmediateUntil(time.Second, func() (bool, error) {
 		c, err := pl.getCandidate(ctx, pod, targetClusterName)
@@ -148,7 +166,7 @@ func (pl *Plugin) Filter(ctx context.Context, state *framework.CycleState, pod *
 				break
 			}
 		}
-
+		candidate = c
 		klog.V(1).Infof("candidate %s is reserved? %v unschedulable? %v", c.Name, isReserved, isUnschedulable)
 
 		return isReserved || isUnschedulable, nil
@@ -158,6 +176,7 @@ func (pl *Plugin) Filter(ctx context.Context, state *framework.CycleState, pod *
 	}
 
 	if isUnschedulable {
+		_ = pl.cleanupCandidate(ctx, candidate, targetClusterName)
 		return framework.NewStatus(framework.UnschedulableAndUnresolvable, "")
 	}
 
@@ -221,6 +240,7 @@ const preBindWaitDuration = 60 * time.Second // increased from arbitrary 30 seco
 func (pl *Plugin) PreBind(ctx context.Context, state *framework.CycleState, p *v1.Pod, nodeName string) *framework.Status {
 	// wait for candidate to be bound or not
 	targetClusterName := virtualNodeNameToClusterName(nodeName)
+	candidate, _ := pl.getCandidate(ctx, p, targetClusterName)
 
 	ctx, cancel := context.WithTimeout(ctx, preBindWaitDuration)
 	defer cancel()
@@ -230,6 +250,7 @@ func (pl *Plugin) PreBind(ctx context.Context, state *framework.CycleState, p *v
 		return pl.candidateIsBound(ctx, p, targetClusterName)
 	}, ctx.Done()); err != nil {
 		// or binding cycle done, candidate was never bound or not
+		_ = pl.cleanupCandidate(ctx, candidate, targetClusterName)
 		return framework.NewStatus(framework.Error, err.Error())
 	}
 
