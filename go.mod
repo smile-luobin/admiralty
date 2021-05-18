@@ -83,3 +83,5 @@ replace k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.18.9
 replace k8s.io/sample-controller => k8s.io/sample-controller v0.18.9
 
 replace github.com/virtual-kubelet/virtual-kubelet => github.com/adrienjt/virtual-kubelet v1.2.1-0.20200629234002-e9f8d6cee1dc
+
+replace k8s.io/kubernetes => github.com/smile-luobin/kubernetes v1.19.0-alpha.0.0.20210518015207-6758376854e1
