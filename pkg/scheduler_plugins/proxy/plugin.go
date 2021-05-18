@@ -30,6 +30,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog"
+	"k8s.io/kubernetes/pkg/api/v1/pod"
 	framework "k8s.io/kubernetes/pkg/scheduler/framework/v1alpha1"
 	"k8s.io/kubernetes/pkg/scheduler/nodeinfo"
 
@@ -75,7 +76,7 @@ func (pl *Plugin) cleanupCandidate(ctx context.Context, c *v1alpha1.PodChaperon,
 		}
 		return err
 	}
-	klog.V(1).Info("cleanup candidate %s in target cluster %s", c.Name, clusterName)
+	klog.V(1).Infof("cleanup candidate %s in target cluster %s", c.Name, clusterName)
 	return target.MulticlusterV1alpha1().PodChaperons(c.Namespace).Delete(ctx, c.Name, metav1.DeleteOptions{})
 }
 
@@ -301,22 +302,27 @@ func (pl *Plugin) Less(info1 *framework.PodInfo, info2 *framework.PodInfo) bool 
 	_, group1CreatedAt, group1Priority := common.GetGroupInfoFromPodInfo(info1)
 	_, group2CreatedAt, group2Priority := common.GetGroupInfoFromPodInfo(info2)
 
-	// order by group-priority asc
-	if group1Priority < group2Priority {
+	if group1Priority > group2Priority {
 		return true
-	} else if group1Priority > group2Priority {
+	} else if group1Priority < group2Priority {
 		return false
 	}
 
-	// order by group-created-at desc
 	if group1CreatedAt < group2CreatedAt {
-		return false
-	} else if group1CreatedAt > group2CreatedAt {
 		return true
+	} else if group1CreatedAt > group2CreatedAt {
+		return false
 	}
 
-	// order by creation asc
-	if info1.Pod.CreationTimestamp.After(info2.Pod.CreationTimestamp.Time) {
+	p1 := pod.GetPodPriority(info1.Pod)
+	p2 := pod.GetPodPriority(info2.Pod)
+	if p1 > p2 {
+		return true
+	} else if p1 < p2 {
+		return false
+	}
+
+	if info1.Pod.CreationTimestamp.Before(&info2.Pod.CreationTimestamp) {
 		return true
 	}
 	return false
