@@ -69,15 +69,19 @@ func (pl *Plugin) cleanupCandidate(ctx context.Context, c *v1alpha1.PodChaperon,
 	if !ok {
 		return fmt.Errorf("no target for cluster name %s", clusterName)
 	}
-	_, err := target.MulticlusterV1alpha1().PodChaperons(c.Namespace).Get(ctx, c.Name, metav1.GetOptions{})
-	if err != nil {
-		if errors.IsNotFound(err) {
-			return nil
+	if c != nil {
+		_, err := target.MulticlusterV1alpha1().PodChaperons(c.Namespace).Get(ctx, c.Name, metav1.GetOptions{})
+		if err != nil {
+			if errors.IsNotFound(err) {
+				return nil
+			}
+			return err
 		}
-		return err
+
+		klog.V(1).Infof("cleanup candidate %s in target cluster %s", c.Name, clusterName)
+		return target.MulticlusterV1alpha1().PodChaperons(c.Namespace).Delete(ctx, c.Name, metav1.DeleteOptions{})
 	}
-	klog.V(1).Infof("cleanup candidate %s in target cluster %s", c.Name, clusterName)
-	return target.MulticlusterV1alpha1().PodChaperons(c.Namespace).Delete(ctx, c.Name, metav1.DeleteOptions{})
+	return nil
 }
 
 func virtualNodeNameToClusterName(nodeName string) string {
@@ -173,6 +177,7 @@ func (pl *Plugin) Filter(ctx context.Context, state *framework.CycleState, pod *
 		return isReserved || isUnschedulable, nil
 	}, ctx.Done()); err != nil {
 		// error or timeout or scheduling cycle done
+		_ = pl.cleanupCandidate(ctx, candidate, targetClusterName)
 		return framework.NewStatus(framework.UnschedulableAndUnresolvable, err.Error())
 	}
 
